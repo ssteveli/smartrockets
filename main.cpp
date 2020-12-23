@@ -10,12 +10,29 @@ constexpr float FLOAT_MAX = 5.0f;
 std::random_device rd;
 std::default_random_engine eng(rd());
 std::uniform_real_distribution<float> distr(FLOAT_MIN, FLOAT_MAX);
+float maxForce = 0.5f;
+float maxSpeed = 3.0f;
+
+void max(olc::vf2d &v, float max)
+{
+    v.norm() *= max;
+}
+
+void limit(olc::vf2d &v, float max)
+{
+    const float mSq = v.mag();
+    if (mSq > max * max)
+    {
+        v /= sqrt(mSq);
+        v *= max;
+    }
+}
 
 class SmartRockets : public olc::PixelGameEngine
 {
 private:
     int numberOfRockets = 10;
-    int iterations = 200;
+    int iterations = 400;
     int frame = 0;
 
     olc::Sprite *sprRocket = NULL;
@@ -43,6 +60,7 @@ private:
         void update()
         {
             vel += acc;
+            limit(vel, maxSpeed);
             pos += vel;
             acc *= 0.0f;
         }
@@ -88,12 +106,9 @@ public:
         for (auto &rocket : rockets)
         {
             if (frame++ >= iterations)
-                frame = 0;
-
-            if (rocket.pos.x > ScreenWidth() || rocket.pos.x < 0 || rocket.pos.y > ScreenHeight() || rocket.pos.y < 0)
             {
-                rocket.crashed = true;
-                rocket.vel = {0.0f, 0.0f};
+                rocket.pos = {ScreenWidth() / 2.0f, ScreenHeight() - 50.0f};
+                frame = 0;
             }
 
             if (!rocket.completed || rocket.crashed)
@@ -105,7 +120,8 @@ public:
             DrawRotatedDecal(
                 rocket.pos,
                 dRocket,
-                atan2(rocket.vel.y, rocket.vel.x) + 0.90f);
+                0.2f,
+                {sprRocket->width / 2.0f, sprRocket->height / 2.0f});
         }
         SetPixelMode(olc::Pixel::NORMAL);
         return true;
