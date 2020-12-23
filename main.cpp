@@ -12,7 +12,7 @@ std::default_random_engine eng(rd());
 std::uniform_real_distribution<float> distr(FLOAT_MIN, FLOAT_MAX);
 
 uint8_t numberOfRockets = 50;
-uint16_t lifespan = 300;
+uint16_t lifespan = 400;
 uint16_t age = 0;
 uint16_t generation = 0;
 
@@ -98,6 +98,8 @@ private:
 
     std::vector<Rocket> rockets;
     olc::vf2d target;
+    olc::vi2d blockerPos = {200, 400};
+    olc::vi2d blockerSize = {400, 10};
 
     void scoreHealth()
     {
@@ -172,7 +174,7 @@ public:
         sprRocket = new olc::Sprite("./assets/rocket.png");
 
         sprTarget = new olc::Sprite("./assets/star.png");
-        target = {(float)(rand() % ScreenWidth()), 50.0f};
+        target = {(ScreenWidth() / 2.0f) - (sprTarget->width / 2.0f), 50.0f};
 
         dRocket = new olc::Decal(sprRocket);
 
@@ -201,6 +203,8 @@ public:
         Clear(olc::BLACK);
         SetPixelMode(olc::Pixel::ALPHA);
 
+        FillRect(blockerPos, blockerSize, olc::RED);
+
         if (++age >= lifespan)
         {
             repopulate();
@@ -227,6 +231,12 @@ public:
             }
 
             if (rocket.pos.y < 0 || rocket.pos.y > ScreenHeight())
+            {
+                rocket.vel *= 0.0f;
+                rocket.crashed = true;
+            }
+
+            if (rocket.pos.x > blockerPos.x && rocket.pos.x < blockerPos.x + blockerSize.x && rocket.pos.y < blockerPos.y + blockerSize.y)
             {
                 rocket.vel *= 0.0f;
                 rocket.crashed = true;
