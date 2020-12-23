@@ -172,7 +172,7 @@ public:
         sprRocket = new olc::Sprite("./assets/rocket.png");
 
         sprTarget = new olc::Sprite("./assets/star.png");
-        target = {(ScreenWidth() / 2.0f) - (sprTarget->width / 2.0f), 50.0f};
+        target = {(float)(rand() % ScreenWidth()), 50.0f};
 
         dRocket = new olc::Decal(sprRocket);
 
@@ -222,11 +222,13 @@ public:
 
             if (rocket.pos.x < 0 || rocket.pos.x > ScreenWidth())
             {
+                rocket.vel *= 0.0f;
                 rocket.crashed = true;
             }
 
             if (rocket.pos.y < 0 || rocket.pos.y > ScreenHeight())
             {
+                rocket.vel *= 0.0f;
                 rocket.crashed = true;
             }
 
