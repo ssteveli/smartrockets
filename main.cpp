@@ -56,7 +56,8 @@ private:
             int mid = rand() % genes.size();
             for (int i = 0; i < genes.size(); i++)
             {
-                if (rand() < 0.01f)
+                int mutate = rand() % 100;
+                if (mutate < 3)
                 {
                     // mutate
                     child.genes.push_back({distr(eng), distr(eng)});
@@ -98,8 +99,8 @@ private:
 
     std::vector<Rocket> rockets;
     olc::vf2d target;
-    olc::vi2d blockerPos = {200, 400};
-    olc::vi2d blockerSize = {400, 10};
+    olc::vi2d blockerPos = {250, 400};
+    olc::vi2d blockerSize = {300, 10};
 
     void scoreHealth()
     {
@@ -128,6 +129,7 @@ private:
         float maxHealth = 0.0f;
         for (auto &rocket : rockets)
         {
+            std::cout << rocket.health << std::endl;
             if (rocket.health > maxHealth)
             {
                 maxHealth = rocket.health;
@@ -145,7 +147,7 @@ private:
                 genenicPool.push_back(rocket);
             }
         }
-
+        std::cout << "pool: " << genenicPool.size() << std::endl;
         rockets.clear();
         for (int i = 0; i < numberOfRockets; i++)
         {
@@ -200,11 +202,6 @@ public:
 
     bool OnUserUpdate(float fElapsedTime) override
     {
-        Clear(olc::BLACK);
-        SetPixelMode(olc::Pixel::ALPHA);
-
-        FillRect(blockerPos, blockerSize, olc::RED);
-
         if (++age >= lifespan)
         {
             repopulate();
@@ -214,54 +211,81 @@ public:
         }
 
         scoreHealth();
+        uint16_t winners = 0;
+        uint16_t losers = 0;
+
         for (auto &rocket : rockets)
         {
-            if (dist(rocket.pos, target) < 20.0f)
+            if (dist(rocket.pos, target) < 30.0f)
             {
                 rocket.vel *= 0.0f;
-                rocket.pos = target;
+                rocket.acc *= 0.0f;
                 rocket.completed = true;
                 rocket.crashed = false;
+                winners++;
+                std::cout << "WIN!" << std::endl;
             }
 
             if (rocket.pos.x < 0 || rocket.pos.x > ScreenWidth())
             {
                 rocket.vel *= 0.0f;
+                rocket.acc *= 0.0f;
                 rocket.crashed = true;
+                losers++;
             }
 
             if (rocket.pos.y < 0 || rocket.pos.y > ScreenHeight())
             {
                 rocket.vel *= 0.0f;
+                rocket.acc *= 0.0f;
                 rocket.crashed = true;
+                losers++;
             }
 
             if (rocket.pos.x > blockerPos.x && rocket.pos.x < blockerPos.x + blockerSize.x && rocket.pos.y < blockerPos.y + blockerSize.y)
             {
                 rocket.vel *= 0.0f;
+                rocket.acc *= 0.0f;
                 rocket.crashed = true;
+                losers++;
             }
 
-            if (!rocket.completed || !rocket.crashed)
+            if (!rocket.completed && !rocket.crashed)
             {
                 rocket.applyForce(rocket.dna.genes[age] * fElapsedTime);
                 rocket.update();
             }
-
-            DrawSprite(target, sprTarget, 0.2f);
-
-            olc::vf2d h = rocket.pos + rocket.vel;
-            h = h.norm();
-
-            DrawRotatedDecal(
-                rocket.pos,
-                dRocket,
-                atan2f(h.y, h.x),
-                {sprRocket->width / 2.0f, sprRocket->height / 2.0f});
-
-            DrawString({10, 30}, std::to_string(age) + " / " + std::to_string(generation), olc::WHITE, 2);
         }
+
+        Clear(olc::BLACK);
+        SetPixelMode(olc::Pixel::ALPHA);
+        DrawSprite(target, sprTarget, 0.2f);
+        for (auto &rocket : rockets)
+        {
+            if (rocket.completed)
+            {
+                DrawSprite(rocket.pos, sprTarget, 0.005f);
+            }
+            else
+            {
+                olc::vf2d h = rocket.pos + rocket.vel;
+                h = h.norm();
+
+                DrawRotatedDecal(
+                    rocket.pos,
+                    dRocket,
+                    atan2f(h.y, h.x),
+                    {sprRocket->width / 2.0f, sprRocket->height / 2.0f});
+            }
+        }
+
+        FillRect(blockerPos, blockerSize, olc::RED);
+        DrawString({10, 30}, "Age: " + std::to_string(age), olc::WHITE, 2);
+        DrawString({10, 50}, "Winners: " + std::to_string(winners), olc::WHITE, 2);
+        DrawString({10, 70}, "Losers: " + std::to_string(losers), olc::WHITE, 2);
+        DrawString({10, 90}, "Generation: " + std::to_string(generation), olc::WHITE, 2);
         SetPixelMode(olc::Pixel::NORMAL);
+
         return true;
     }
 };
