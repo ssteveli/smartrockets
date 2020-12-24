@@ -4,19 +4,18 @@
 #include "olcPixelGameEngine/olcPixelGameEngine.h"
 
 constexpr float PI = 3.14159;
-constexpr float FLOAT_MIN = -8.0f;
-constexpr float FLOAT_MAX = 8.0f;
+constexpr float FLOAT_MIN = -20.0f;
+constexpr float FLOAT_MAX = 20.0f;
 
 std::random_device rd;
 std::default_random_engine eng(rd());
 std::uniform_real_distribution<float> distr(FLOAT_MIN, FLOAT_MAX);
 
-uint8_t numberOfRockets = 50;
-uint16_t lifespan = 400;
+uint8_t numberOfRockets = 100;
+uint16_t lifespan = 300;
 uint16_t age = 0;
 uint16_t generation = 0;
 
-float maxForce = -8.0f;
 float maxSpeed = 100.0f;
 
 void max(olc::vf2d &v, float max)
@@ -37,6 +36,11 @@ void limit(olc::vf2d &v, float max)
 float dist(olc::vf2d &v1, olc::vf2d &v2)
 {
     return sqrtf((v1.x - v2.x) * (v1.x - v2.x) + (v1.y - v2.y) * (v1.y - v2.y));
+}
+
+float map(float x, float in_min, float in_max, float out_min, float out_max)
+{
+    return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
 }
 
 class SmartRockets : public olc::PixelGameEngine
@@ -83,6 +87,7 @@ private:
         DNA dna;
         bool completed;
         bool crashed;
+        uint16_t age;
 
         void applyForce(olc::vf2d force)
         {
@@ -91,22 +96,30 @@ private:
 
         void update()
         {
-            vel += acc;
-            pos += vel;
+            if (!crashed && !completed)
+            {
+                vel += acc;
+                pos += vel;
+                age++;
+            }
             acc *= 0.0f;
         }
     };
 
     std::vector<Rocket> rockets;
     olc::vf2d target;
-    olc::vi2d blockerPos = {250, 400};
-    olc::vi2d blockerSize = {300, 10};
+    olc::vf2d targetCenter;
+    olc::vi2d blockerPos = {200, 400};
+    olc::vi2d blockerSize = {400, 10};
+    uint16_t maxWinners = 0;
 
     void scoreHealth()
     {
         for (auto &rocket : rockets)
         {
             float d = dist(rocket.pos, target);
+            rocket.health = map(d, 0, ScreenWidth(), ScreenWidth(), 0);
+
             if (rocket.completed)
             {
                 rocket.health *= 10;
@@ -114,10 +127,6 @@ private:
             else if (rocket.crashed)
             {
                 rocket.health /= 10;
-            }
-            else
-            {
-                rocket.health = 1 / dist(rocket.pos, target);
             }
         }
     }
@@ -129,12 +138,12 @@ private:
         float maxHealth = 0.0f;
         for (auto &rocket : rockets)
         {
-            std::cout << rocket.health << std::endl;
             if (rocket.health > maxHealth)
             {
                 maxHealth = rocket.health;
             }
         }
+        std::cout << "max score: " << maxHealth << std::endl;
 
         // create our generic pool of rockets based on health
         for (auto &rocket : rockets)
@@ -148,6 +157,7 @@ private:
             }
         }
         std::cout << "pool: " << genenicPool.size() << std::endl;
+
         rockets.clear();
         for (int i = 0; i < numberOfRockets; i++)
         {
@@ -160,6 +170,8 @@ private:
             rocket.acc = {0.0f, 0.0f};
             rocket.completed = false;
             rocket.crashed = false;
+            rocket.health = 0;
+            rocket.age = 0;
             parentA.mate(parentB, rocket.dna);
             rockets.push_back(rocket);
         }
@@ -177,6 +189,7 @@ public:
 
         sprTarget = new olc::Sprite("./assets/star.png");
         target = {(ScreenWidth() / 2.0f) - (sprTarget->width / 2.0f), 50.0f};
+        targetCenter = {target.x + (sprTarget->width / 2), target.y - (sprTarget->height / 2)};
 
         dRocket = new olc::Decal(sprRocket);
 
@@ -186,6 +199,8 @@ public:
             rocket.pos = {ScreenWidth() / 2.0f, ScreenHeight() - 50.0f};
             rocket.vel = {0.0f, 0.0f};
             rocket.acc = {0.0f, 0.0f};
+            rocket.health = 0;
+            rocket.age = 0;
             rocket.completed = false;
             rocket.crashed = false;
 
@@ -204,29 +219,31 @@ public:
     {
         if (++age >= lifespan)
         {
+            scoreHealth();
             repopulate();
 
             age = 0;
             generation++;
         }
 
-        scoreHealth();
         uint16_t winners = 0;
         uint16_t losers = 0;
 
         for (auto &rocket : rockets)
         {
-            if (dist(rocket.pos, target) < 30.0f)
+            if (dist(rocket.pos, targetCenter) <= 50.0f)
             {
-                rocket.vel *= 0.0f;
-                rocket.acc *= 0.0f;
                 rocket.completed = true;
-                rocket.crashed = false;
                 winners++;
-                std::cout << "WIN!" << std::endl;
             }
 
-            if (rocket.pos.x < 0 || rocket.pos.x > ScreenWidth())
+            if (rocket.pos.x < 0 || rocket.pos.x > ScreenWidth() || rocket.pos.y < 0 || rocket.pos.y > ScreenHeight())
+            {
+                rocket.crashed = true;
+                losers++;
+            }
+
+            if (rocket.pos.x > blockerPos.x && rocket.pos.x < (blockerPos.x + blockerSize.x) && rocket.pos.y < (blockerPos.y + blockerSize.y) && rocket.pos.y > blockerPos.y)
             {
                 rocket.vel *= 0.0f;
                 rocket.acc *= 0.0f;
@@ -234,27 +251,8 @@ public:
                 losers++;
             }
 
-            if (rocket.pos.y < 0 || rocket.pos.y > ScreenHeight())
-            {
-                rocket.vel *= 0.0f;
-                rocket.acc *= 0.0f;
-                rocket.crashed = true;
-                losers++;
-            }
-
-            if (rocket.pos.x > blockerPos.x && rocket.pos.x < blockerPos.x + blockerSize.x && rocket.pos.y < blockerPos.y + blockerSize.y)
-            {
-                rocket.vel *= 0.0f;
-                rocket.acc *= 0.0f;
-                rocket.crashed = true;
-                losers++;
-            }
-
-            if (!rocket.completed && !rocket.crashed)
-            {
-                rocket.applyForce(rocket.dna.genes[age] * fElapsedTime);
-                rocket.update();
-            }
+            rocket.applyForce(rocket.dna.genes[age] * fElapsedTime);
+            rocket.update();
         }
 
         Clear(olc::BLACK);
@@ -264,24 +262,27 @@ public:
         {
             if (rocket.completed)
             {
-                DrawSprite(rocket.pos, sprTarget, 0.005f);
+                DrawSprite(rocket.pos, sprTarget, 0.5f);
             }
             else
             {
-                olc::vf2d h = rocket.pos + rocket.vel;
-                h = h.norm();
-
                 DrawRotatedDecal(
                     rocket.pos,
                     dRocket,
-                    atan2f(h.y, h.x),
+                    //0.0f,
+                    atan2f(rocket.vel.y - rocket.pos.y, rocket.vel.x - rocket.pos.x) + (PI / 2),
                     {sprRocket->width / 2.0f, sprRocket->height / 2.0f});
             }
         }
 
         FillRect(blockerPos, blockerSize, olc::RED);
         DrawString({10, 30}, "Age: " + std::to_string(age), olc::WHITE, 2);
-        DrawString({10, 50}, "Winners: " + std::to_string(winners), olc::WHITE, 2);
+
+        if (winners > maxWinners)
+        {
+            maxWinners = winners;
+        }
+        DrawString({10, 50}, "Winners: " + std::to_string(maxWinners) + "/" + std::to_string(numberOfRockets), olc::WHITE, 2);
         DrawString({10, 70}, "Losers: " + std::to_string(losers), olc::WHITE, 2);
         DrawString({10, 90}, "Generation: " + std::to_string(generation), olc::WHITE, 2);
         SetPixelMode(olc::Pixel::NORMAL);
