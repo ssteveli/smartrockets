@@ -49,6 +49,17 @@ private:
     olc::Sprite *sprRocket = NULL;
     olc::Sprite *sprTarget = NULL;
     olc::Decal *dRocket = NULL;
+    olc::Sprite *sprExplosion = NULL;
+    olc::Decal *dExplosion = NULL;
+
+    struct Particle
+    {
+        olc::vf2d pos;
+        olc::vf2d vel;
+        float angle;
+        float time;
+        olc::Pixel col;
+    };
 
     struct DNA
     {
@@ -107,6 +118,7 @@ private:
     };
 
     std::vector<Rocket> rockets;
+    std::vector<Particle> particles;
     olc::vf2d target;
     olc::vf2d targetCenter;
     olc::vi2d blockerPos = {200, 400};
@@ -128,6 +140,27 @@ private:
             {
                 rocket.health /= 10;
             }
+        }
+    }
+
+    void hit(Rocket &rocket)
+    {
+        if (rocket.crashed)
+            return;
+
+        rocket.crashed = true;
+
+        for (int i = 0; i < 3; i++)
+        {
+            Particle p;
+            p.pos = {rocket.pos.x + 0.0f, rocket.pos.y + 1.0f};
+            p.angle = float(rand()) / float(RAND_MAX) * 2.0f * PI;
+            float v = float(rand()) / float(RAND_MAX) * 15.0f;
+            p.vel = {v * (float)cos(p.angle), v * (float)sin(p.angle)};
+            p.time = 1.0f;
+            p.col = olc::DARK_RED;
+
+            particles.push_back(p);
         }
     }
 
@@ -186,12 +219,14 @@ public:
     bool OnUserCreate() override
     {
         sprRocket = new olc::Sprite("./assets/rocket.png");
+        dRocket = new olc::Decal(sprRocket);
+
+        sprExplosion = new olc::Sprite("./assets/explosion.png");
+        dExplosion = new olc::Decal(sprExplosion);
 
         sprTarget = new olc::Sprite("./assets/star.png");
         target = {(ScreenWidth() / 2.0f) - (sprTarget->width / 2.0f), 50.0f};
         targetCenter = {target.x + (sprTarget->width / 2), target.y - (sprTarget->height / 2)};
-
-        dRocket = new olc::Decal(sprRocket);
 
         for (int i = 0; i < numberOfRockets; i++)
         {
@@ -239,21 +274,34 @@ public:
 
             if (rocket.pos.x < 0 || rocket.pos.x > ScreenWidth() || rocket.pos.y < 0 || rocket.pos.y > ScreenHeight())
             {
-                rocket.crashed = true;
+                hit(rocket);
                 losers++;
             }
 
             if (rocket.pos.x > blockerPos.x && rocket.pos.x < (blockerPos.x + blockerSize.x) && rocket.pos.y < (blockerPos.y + blockerSize.y) && rocket.pos.y > blockerPos.y)
             {
-                rocket.vel *= 0.0f;
-                rocket.acc *= 0.0f;
-                rocket.crashed = true;
+                hit(rocket);
                 losers++;
             }
 
             rocket.applyForce(rocket.dna.genes[age] * fElapsedTime);
             rocket.update();
         }
+
+        for (auto &p : particles)
+        {
+            p.vel += olc::vf2d(0.0f, 50.0f) * fElapsedTime;
+            p.pos += p.vel * fElapsedTime;
+            p.angle += 5.0f * fElapsedTime;
+            p.time -= fElapsedTime;
+            p.col = (p.time / 3.0f) * 255;
+        }
+
+        particles.erase(std::remove_if(particles.begin(), particles.end(),
+                                       [](const Particle p) {
+                                           return p.time < 0.0f;
+                                       }),
+                        particles.end());
 
         Clear(olc::BLACK);
         SetPixelMode(olc::Pixel::ALPHA);
@@ -264,15 +312,19 @@ public:
             {
                 DrawSprite(rocket.pos, sprTarget, 0.5f);
             }
-            else
+            else if (!rocket.crashed)
             {
                 DrawRotatedDecal(
                     rocket.pos,
                     dRocket,
-                    //0.0f,
                     atan2f(rocket.vel.y - rocket.pos.y, rocket.vel.x - rocket.pos.x) + (PI / 2),
                     {sprRocket->width / 2.0f, sprRocket->height / 2.0f});
             }
+        }
+
+        for (auto &p : particles)
+        {
+            DrawRotatedDecal(p.pos, dExplosion, p.angle);
         }
 
         FillRect(blockerPos, blockerSize, olc::RED);
