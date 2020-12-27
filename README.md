@@ -5,6 +5,6 @@ the olc::PixelGameEngine from [One Lone Coder](https://community.onelonecoder.co
 
 The [Nature of Code](https://thecodingtrain.com/learning/nature-of-code/) from The Coding Train breaks down many of the techniques here, check it out.
 
-# Cloning
+## Cloning
 
 Don't forget `git submodule update --init --recursive` after cloning this repository.
