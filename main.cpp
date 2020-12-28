@@ -314,16 +314,20 @@ public:
             }
             else if (!rocket.crashed)
             {
+                olc::vf2d h = rocket.vel.norm();
+                float angle = atan2f(h.y, h.x) + 3.14159f / 2.0f;
+
                 DrawRotatedDecal(
                     rocket.pos,
                     dRocket,
-                    atan2f(rocket.vel.y - rocket.pos.y, rocket.vel.x - rocket.pos.x) + (PI / 2),
+                    angle,
                     {sprRocket->width / 2.0f, sprRocket->height / 2.0f});
             }
         }
 
         for (auto &p : particles)
         {
+            DrawCircle(p.pos, 2.0f, olc::WHITE);
             DrawRotatedDecal(p.pos, dExplosion, p.angle);
         }
 
@@ -339,7 +343,7 @@ public:
         DrawString({10, 90}, "Generation: " + std::to_string(generation), olc::WHITE, 2);
         SetPixelMode(olc::Pixel::NORMAL);
 
-        return true;
+        return !GetKey(olc::Key::ESCAPE).bPressed;
     }
 };
 
