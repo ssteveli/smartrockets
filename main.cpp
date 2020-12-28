@@ -121,7 +121,7 @@ private:
     std::vector<Particle> particles;
     olc::vf2d target;
     olc::vf2d targetCenter;
-    olc::vi2d blockerPos = {200, 400};
+    olc::vf2d blockerPos;
     olc::vi2d blockerSize = {400, 10};
     uint16_t maxWinners = 0;
 
@@ -228,6 +228,8 @@ public:
         target = {(ScreenWidth() / 2.0f) - (sprTarget->width / 2.0f), 50.0f};
         targetCenter = {target.x + (sprTarget->width / 2), target.y - (sprTarget->height / 2)};
 
+        blockerPos = {((float)ScreenWidth() / 2) - blockerSize.x / 2, (float)ScreenHeight() * 0.60f};
+
         for (int i = 0; i < numberOfRockets; i++)
         {
             Rocket rocket;
@@ -274,7 +276,7 @@ public:
 
             if (rocket.pos.x < 0 || rocket.pos.x > ScreenWidth() || rocket.pos.y < 0 || rocket.pos.y > ScreenHeight())
             {
-                hit(rocket);
+                rocket.crashed = true;
                 losers++;
             }
 
@@ -331,7 +333,7 @@ public:
             DrawRotatedDecal(p.pos, dExplosion, p.angle);
         }
 
-        FillRect(blockerPos, blockerSize, olc::RED);
+        FillRect(blockerPos, blockerSize, olc::DARK_RED);
         DrawString({10, 30}, "Age: " + std::to_string(age), olc::WHITE, 2);
 
         if (winners > maxWinners)
